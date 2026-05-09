@@ -1,0 +1,84 @@
+require('dotenv').config();
+const express = require('express');
+const axios = require('axios');
+const app = express();
+app.use(express.json());
+
+const TOKEN = process.env.WA_TOKEN;
+const PHONE_ID = process.env.PHONE_NUMBER_ID;
+const VERIFY = process.env.VERIFY_TOKEN;
+
+app.get('/webhook', (req, res) => {
+  if (req.query['hub.verify_token'] === VERIFY) {
+    res.send(req.query['hub.challenge']);
+  } else {
+    res.sendStatus(403);
+  }
+});
+
+app.post('/webhook', async (req, res) => {
+  try {
+    const msg = req.body?.entry?.[0]
+      ?.changes?.[0]?.value?.messages?.[0];
+    if (msg && msg.type === 'text') {
+      const from = msg.from;
+      const text = msg.text.body.toLowerCase();
+      const reply = getReply(text);
+      await sendMessage(from, reply);
+    }
+  } catch (e) {
+    console.error(e);
+  }
+  res.sendStatus(200);
+});
+
+function getReply(text) {
+  if (text.includes('attendance'))
+    return '📊 Attendance May 2026:\n✅ Present: 22 days\n❌ Absent: 1 day\n📈 Percentage: 94%';
+
+  if (text.includes('result') || text.includes('marks'))
+    return '📋 Exam Results:\n📚 Science: 88/100\n📐 Maths: 92/100\n📖 English: 79/100\n🌍 SST: 91/100\n📈 Overall: 91.2% Grade A';
+
+  if (text.includes('homework') || text.includes('assignment'))
+    return '📚 Todays Homework:\n📐 Maths: Exercise 4.2 Q1-10\n🔬 Science: Read Ch.5 Force & Motion\n📖 English: Write paragraph on My School';
+
+  if (text.includes('timetable') || text.includes('schedule'))
+    return '📅 Tomorrows Timetable:\n1️⃣ Mathematics\n2️⃣ Science\n3️⃣ English\n4️⃣ Hindi\n5️⃣ Social Science\n6️⃣ Art';
+
+  if (text.includes('fee') || text.includes('payment'))
+    return '💳 Fee Status:\n💰 Total: Rs.45,000\n✅ Paid: Rs.30,000\n🔴 Due: Rs.15,000\n📅 Due Date: 15 Jun 2026\n🌐 Pay: pay.heritageschool.edu.in';
+
+  if (text.includes('notice') || text.includes('event'))
+    return '📢 Latest Notices:\n🎉 Sports Day: 20 May 2026\n👥 PTA Meeting: 25 May 2026\n🏖️ Summer Vacation: 1 Jun - 30 Jun';
+
+  if (text.includes('admission'))
+    return '🏫 Admissions 2026-27:\n📋 Classes: Nursery to 10\n📅 Last Date: 31 May 2026\n💰 Reg Fee: Rs.500\n📞 Call: 033-XXXX-XXXX';
+
+  if (text === '1' || text.includes('menu') || text.includes('help') || text.includes('hi') || text.includes('hello'))
+    return '🏫 Heritage Model School\nEduWave Bot\n\nReply with:\n1️⃣ Menu\n2️⃣ Attendance\n3️⃣ Results\n4️⃣ Timetable\n5️⃣ Homework\n6️⃣ Fee Status\n7️⃣ Notices\n8️⃣ Admission';
+
+  return '🤔 I did not understand.\nReply MENU to see all options.\n\n_EduWave LMS | Heritage Model School_';
+}
+
+async function sendMessage(to, body) {
+  await axios.post(
+    `https://graph.facebook.com/v18.0/${PHONE_ID}/messages`,
+    {
+      messaging_product: 'whatsapp',
+      to: to,
+      type: 'text',
+      text: { body: body }
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        'Content-Type': 'application/json'
+      }
+    }
+  );
+}
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`EduWave Bot running on port ${PORT}`);
+});
